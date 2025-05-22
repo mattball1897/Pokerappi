@@ -1,0 +1,328 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Zaawansowany Poker</title>
+  <style>
+    body { background-color: #001f3f; color: white; font-family: Arial, sans-serif; padding: 20px; }
+    .section { margin-bottom: 30px; }
+    .card-slot {
+      display: inline-block;
+      width: 60px;
+      height: 40px;
+      line-height: 40px;
+      text-align: center;
+      margin: 5px;
+      background: #004080;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+      border: 1px solid white;
+    }
+    .card-slot.red { color: #FF4136; }
+    .card-slot.black { color: #000000; background: #e0e0e0; }
+    .player {
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 4px;
+      background-color: #002b5c;
+      margin-bottom: 10px;
+    }
+    .player.winner { background-color: #c8e6c9; color: #000; }
+    .hand-desc { margin-top: 5px; font-style: italic; color: #ffeb3b; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #002b5c;
+      color: #fff;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    th { background: #001f3f; }
+    .note { color: #ccc; font-style: italic; }
+
+    #modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0,0,0,0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+    #modal-content {
+      background: #003366;
+      padding: 20px;
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: repeat(7, 40px);
+      gap: 8px;
+    }
+    .card-btn {
+      background: #fff;
+      border-radius: 4px;
+      text-align: center;
+      padding: 8px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .card-btn.red { color: #FF4136; }
+    .card-btn.black { color: #000; }
+    .card-btn:hover { background: #FFDC00; }
+  
+    .card-slot.winner {
+      animation: blink 1s infinite alternate;
+      box-shadow: 0 0 5px 2px #ffff66;
+    }
+    @keyframes blink {
+      0% { background-color: #004080; }
+      100% { background-color: #ffff66; color: black; }
+    }
+
+</style>
+</head>
+<body>
+  <div class="section" id="community-section">
+    <h2>Karty wspólne</h2>
+    <div class="cards" id="community-cards">
+      <div class="card-slot" id="comm-0" onclick="openCommunityModal(0)">--</div>
+      <div class="card-slot" id="comm-1" onclick="openCommunityModal(1)">--</div>
+      <div class="card-slot" id="comm-2" onclick="openCommunityModal(2)">--</div>
+      <div class="card-slot" id="comm-3" onclick="openCommunityModal(3)">--</div>
+      <div class="card-slot" id="comm-4" onclick="openCommunityModal(4)">--</div>
+    </div>
+  </div>
+
+  <div class="section" id="players-section">
+    <h2>Gracze</h2>
+    <div class="players" id="players"></div>
+    <button id="add-player">Dodaj gracza</button>
+  </div>
+
+  <div class="section" id="controls">
+    <h2>Sterowanie</h2>
+    <button id="check-results">Sprawdź wyniki</button>
+    <button id="reset-cards">Resetuj karty</button>
+    <button id="reset-results">Resetuj wyniki</button>
+  </div>
+
+  <div class="section" id="results-section">
+    <h2>Wyniki</h2>
+    <table id="results-table">
+      <thead><tr><th>Gracz</th><th>Pozycja</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="modal">
+    <div id="modal-content"></div>
+  </div>
+
+  <script>
+    const RANKS = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
+    const SUITS = ['♠','♥','♦','♣'];
+    const RANK_MAP = {'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'T':10,'J':11,'Q':12,'K':13,'A':14};
+    const POLISH = {14:'asów',13:'królów',12:'dam',11:'waletów',10:'dziesiątek',9:'dziewiątek',8:'ósemek',7:'siódemek',6:'szóstek',5:'piątek',4:'czwórek',3:'trójek',2:'dwójek'};
+
+    let activeSlot = null;
+    let activeCommunityIndex = null;
+
+    function openCommunityModal(index) {
+      activeCommunityIndex = index;
+      document.getElementById('modal').style.display = 'flex';
+    }
+
+    function openModal(slotElement) {
+      activeSlot = slotElement;
+      document.getElementById('modal').style.display = 'flex';
+    }
+
+    function initModal() {
+      const modalContent = document.getElementById('modal-content');
+      SUITS.forEach(suit => {
+        RANKS.forEach(rank => {
+          const card = rank + suit;
+          const div = document.createElement('div');
+          div.className = 'card-btn ' + ((suit === '♥' || suit === '♦') ? 'red' : 'black');
+          div.innerHTML = '<span>' + card + '</span>';
+          div.onclick = () => {
+            if (activeCommunityIndex !== null) {
+              const slot = document.getElementById('comm-' + activeCommunityIndex);
+              slot.innerHTML = card;
+    slot.classList.remove('red', 'black');
+    slot.classList.add(card.includes('♥') || card.includes('♦') ? 'red' : 'black');
+              slot.classList.remove('red', 'black');
+              slot.classList.add(card.includes('♥') || card.includes('♦') ? 'red' : 'black');
+              activeCommunityIndex = null;
+            } else if (activeSlot) {
+              activeSlot.innerHTML = card;
+    activeSlot.classList.remove('red', 'black');
+    activeSlot.classList.add(card.includes('♥') || card.includes('♦') ? 'red' : 'black');
+              activeSlot.classList.remove('red', 'black');
+              activeSlot.classList.add(card.includes('♥') || card.includes('♦') ? 'red' : 'black');
+              activeSlot = null;
+            }
+            document.getElementById('modal').style.display = 'none';
+          };
+          modalContent.appendChild(div);
+        });
+      });
+      document.getElementById('modal').onclick = e => {
+        if (e.target.id === 'modal') document.getElementById('modal').style.display = 'none';
+      };
+    }
+
+    document.getElementById('add-player').onclick = () => {
+      const div = document.createElement('div');
+      div.className = 'player';
+
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.value = 'Gracz ' + (document.querySelectorAll('.player').length + 1);
+
+      const card1 = document.createElement('div');
+      const card2 = document.createElement('div');
+      card1.className = 'card-slot'; card1.textContent = '--';
+      card2.className = 'card-slot'; card2.textContent = '--';
+      card1.onclick = () => openModal(card1);
+      card2.onclick = () => openModal(card2);
+
+      const desc = document.createElement('div');
+      desc.className = 'hand-desc';
+
+      const remove = document.createElement('button');
+      remove.textContent = 'Usuń';
+      remove.onclick = () => div.remove();
+
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.gap = '10px';
+      row.append(card1, card2);
+
+      div.append(nameInput, row, remove, desc);
+      document.getElementById('players').append(div);
+    };
+
+    document.getElementById('check-results').onclick = () => {
+      const comm = Array.from({length: 5}, (_, i) => document.getElementById('comm-' + i).textContent);
+      const tbody = document.querySelector('#results-table tbody');
+      tbody.innerHTML = '';
+      document.querySelectorAll('.player.winner').forEach(p => p.classList.remove('winner'));
+
+      if (comm.includes('--') || comm.some(c => c.length !== 2)) {
+        tbody.innerHTML = '<tr><td colspan="2" class="note">Dodaj 5 kart wspólnych</td></tr>';
+        return;
+      }
+
+      const results = Array.from(document.querySelectorAll('.player')).map(div => {
+        const name = div.querySelector('input').value;
+        const cards = Array.from(div.querySelectorAll('.card-slot')).map(c => c.textContent).filter(c => c.length === 2);
+        if (cards.length < 2) return null;
+        const all = cards.concat(comm);
+        const {rank, desc, highs} = evaluateBest(all);
+        div.querySelector('.hand-desc').textContent = desc;
+        return {div, name, rank, highs};
+      }).filter(r => r);
+
+      results.sort((a, b) => b.rank !== a.rank ? b.rank - a.rank : compareHighs(b.highs, a.highs));
+      results.forEach((r, i) => {
+        if (i === 0) r.div.classList.add('winner');
+    
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${r.name}</td><td>${i+1}</td>`;
+        tbody.append(tr);
+      });
+    };
+
+    
+    document.getElementById('reset-cards').onclick = () => {
+      document.querySelectorAll('.card-slot').forEach(slot => {
+        slot.textContent = '--';
+        slot.classList.remove('red', 'black', 'winner');
+      });
+      document.querySelectorAll('.hand-desc').forEach(d => d.textContent = '');
+      document.querySelectorAll('.player').forEach(p => p.classList.remove('winner'));
+      for (let i = 0; i < 5; i++) {
+        const comm = document.getElementById('comm-' + i);
+        if (comm) {
+          comm.textContent = '--';
+          comm.classList.remove('red', 'black');
+        }
+      }
+    };
+
+
+    document.getElementById('reset-results').onclick = () => {
+      document.querySelector('#results-table tbody').innerHTML = '';
+      document.querySelectorAll('.player').forEach(div => {
+        div.classList.remove('winner');
+        div.querySelector('.hand-desc').textContent = '';
+      });
+    };
+
+    function compareHighs(a, b) {
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return a[i] - b[i];
+      }
+      return 0;
+    }
+
+    function evaluateBest(cards) {
+      const objs = cards.map(c => ({r: RANK_MAP[c[0]], s: c[1]}));
+      const ranks = objs.map(o => o.r), suits = objs.map(o => o.s);
+      const rc = {}, sc = {};
+      ranks.forEach(r => rc[r] = (rc[r] || 0) + 1);
+      suits.forEach(s => sc[s] = (sc[s] || 0) + 1);
+      const uniq = [...new Set(ranks)].sort((a, b) => b - a);
+      const sr = [...uniq]; if (uniq.includes(14)) sr.push(1);
+      let strHigh = null, cnt = 1;
+      for (let i = 0; i < sr.length - 1; i++) {
+        if (sr[i] - sr[i + 1] === 1) {
+          cnt++; if (cnt >= 5) { strHigh = sr[i + 1 + 4 - 1]; break; }
+        } else cnt = 1;
+      }
+      const fSuit = Object.keys(sc).find(s => sc[s] >= 5);
+      const fCards = fSuit ? objs.filter(o => o.s === fSuit).map(o => o.r).sort((a, b) => b - a) : [];
+      let sf = null;
+      if (fCards.length >= 5) {
+        const fu = [...new Set(fCards)];
+        const sr2 = [...fu]; if (fu.includes(14)) sr2.push(1);
+        let c2 = 1; for (let i = 0; i < sr2.length - 1; i++) {
+          if (sr2[i] - sr2[i + 1] === 1) { c2++; if (c2 >= 5) { sf = sr2[i + 1 + 4 - 1]; break; } } else c2 = 1;
+        }
+      }
+      const four = Object.entries(rc).filter(([_, c]) => c === 4).map(([r]) => +r);
+      const three = Object.entries(rc).filter(([_, c]) => c === 3).map(([r]) => +r).sort((a, b) => b - a);
+      const pair = Object.entries(rc).filter(([_, c]) => c === 2).map(([r]) => +r).sort((a, b) => b - a);
+      if (sf) return {rank: 9, highs: [sf], desc: sf === 14 ? 'Poker królewski' : 'Strit-flusz do ' + POLISH[sf]};
+      if (four.length) { const f = four[0]; const k = Math.max(...uniq.filter(x => x !== f)); return {rank: 8, highs: [f, k], desc: 'Kareta ' + POLISH[f]}; }
+      if (three.length && (pair.length || three.length > 1)) {
+        const t = three[0]; const p = three.length > 1 ? three[1] : pair[0];
+        return {rank: 7, highs: [t, p], desc: 'Full: trójka ' + POLISH[t] + ' i para ' + POLISH[p]};
+      }
+      if (fCards.length >= 5) return {rank: 6, highs: fCards.slice(0, 5), desc: 'Kolor, najwyższa ' + POLISH[fCards[0]]};
+      if (strHigh) return {rank: 5, highs: [strHigh], desc: 'Strit do ' + POLISH[strHigh]};
+      if (three.length) {
+        const t = three[0]; const ks = uniq.filter(x => x !== t).slice(0, 2);
+        return {rank: 4, highs: [t, ...ks], desc: 'Trójka ' + POLISH[t]};
+      }
+      if (pair.length > 1) {
+        const [p1, p2] = pair; const k = uniq.filter(x => x !== p1 && x !== p2)[0];
+        return {rank: 3, highs: [p1, p2, k], desc: 'Dwie pary: ' + POLISH[p1] + ' i ' + POLISH[p2]};
+      }
+      if (pair.length) {
+        const p = pair[0]; const ks = uniq.filter(x => x !== p).slice(0, 3);
+        return {rank: 2, highs: [p, ...ks], desc: 'Para ' + POLISH[p]};
+      }
+      const high = uniq.slice(0, 5);
+      return {rank: 1, highs: high, desc: 'Wysoka karta ' + POLISH[high[0]]};
+    }
+
+    initModal();
+  </script>
+</body>
+</html>
